@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import PatientHeader from "@/components/dashboard/PatientHeader";
 import RiskScoreCard from "@/components/dashboard/RiskScoreCard";
@@ -14,14 +14,16 @@ export default function ResultPage() {
 
   useEffect(() => {
     const savedInsights = localStorage.getItem("assessment_insights");
-    if (savedInsights) {
-      setTimeout(() => { // Small delay to feel like "calculating"
+    try {
+      if (savedInsights) {
         setApiData(JSON.parse(savedInsights));
-        setIsLoading(false);
-      }, 1500);
-    } else {
-      setIsLoading(false);
+      }
+    } catch (e) {
+      console.error("Failed to parse local storage data", e);
     }
+    // Simulation of processing time
+    const timer = setTimeout(() => setIsLoading(false), 1500);
+    return () => clearTimeout(timer);
   }, []);
 
   const handleGoHome = () => {
@@ -29,128 +31,92 @@ export default function ResultPage() {
     router.push("/");
   };
 
-  const defaultResult = {
-    score: apiData?.score || 0,
-    status: apiData?.status || "Pending Analysis",
-    consultation: apiData?.consultation || {
-      analysis: "Loading physiological summary...",
-      steps: ["...", "...", "..."],
-      insights: ["...", "...", "..."],
-      closing_note: "..."
-    }
+  // --- BULLETPROOF DATA MERGING ---
+  // This section ensures that even if apiData is {}, null, or missing keys, the UI won't crash.
+  
+  const patient = {
+    name: apiData?.patientData?.name || "Guest Patient",
+    age: apiData?.patientData?.age || "--",
+    gender: apiData?.patientData?.gender || "Not Specified",
+    occupation: apiData?.patientData?.occupation || "Consultant",
+  };
+
+  const report = {
+    score: typeof apiData?.score === 'number' ? apiData.score : 0,
+    status: apiData?.status || "Inconclusive / Pending",
+    analysis: apiData?.consultation?.analysis || "Our engine is currently unable to synthesize a narrative. Based on raw markers, we recommend a general focus on digital-work-life balance.",
+    steps: Array.isArray(apiData?.consultation?.steps) ? apiData.consultation.steps : [
+      "Prioritize 7-8 hours of consistent sleep to allow neural recovery.",
+      "Implement a 20-20-20 rule to reduce digital eye strain and mental fatigue.",
+      "Balance caffeine intake with increased water consumption throughout the work day."
+    ],
+    insights: Array.isArray(apiData?.consultation?.insights) ? apiData.consultation.insights : [
+      "Your current screen-to-sleep ratio is a primary driver of fatigue.",
+      "Work productivity levels show a strong correlation with physical activity.",
+      "Small adjustments in digital habits could yield significant stress reduction."
+    ],
+    closing_note: apiData?.consultation?.closing_note || "Health is a journey of small, consistent physiological choices."
   };
 
   if (isLoading) {
     return (
       <div className="h-screen w-full flex flex-col items-center justify-center bg-slate-50">
-        <div className="relative">
-          <Loader2 className="w-16 h-16 text-indigo-500 animate-spin" />
-          <div className="absolute inset-0 flex items-center justify-center">
-             <div className="w-2 h-2 bg-indigo-500 rounded-full animate-ping" />
-          </div>
-        </div>
-        <h2 className="mt-8 text-xl font-serif italic text-slate-700">Assembling Clinical Insights</h2>
-        <p className="text-slate-400 text-sm mt-2 font-light">Cross-referencing biomarkers with neural patterns...</p>
+        <Loader2 className="w-12 h-12 text-indigo-500 animate-spin mb-4" />
+        <h2 className="text-xl font-serif italic text-slate-700">Generating Consultation Report...</h2>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#FDFEFF] text-slate-900 selection:bg-indigo-100">
-      {/* Soft Background Accents */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-indigo-50/50 rounded-full blur-[120px]" />
-        <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-emerald-50/50 rounded-full blur-[120px]" />
-      </div>
-
-      <div className="relative max-w-6xl mx-auto py-12 px-6 md:px-10">
+    <div className="min-h-screen bg-[#FDFEFF] text-slate-900">
+      <div className="relative max-w-6xl mx-auto py-12 px-6">
         
-        {/* Navigation & Actions */}
+        {/* Navigation */}
         <div className="flex justify-between items-center mb-12">
           <button onClick={handleGoHome} className="flex items-center gap-3 text-slate-400 hover:text-indigo-600 transition-colors group">
-            <div className="p-2 rounded-full border border-slate-200 group-hover:border-indigo-200 group-hover:bg-indigo-50 transition-all">
-              <ArrowLeft className="w-4 h-4" />
-            </div>
+            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
             <span className="text-[10px] font-bold uppercase tracking-[0.2em]">Exit Portal</span>
           </button>
-          
-          <button onClick={() => window.print()} className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 hover:text-slate-900 transition-all">
-            <Printer className="w-4 h-4" />
-            Print Report
+          <button onClick={() => window.print()} className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
+            <Printer className="w-4 h-4" /> Print
           </button>
         </div>
 
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-          className="space-y-10"
-        >
-          {/* Section 1: Identity Card */}
-          <section className="bg-white rounded-[3rem] shadow-sm border border-slate-100 overflow-hidden">
-            <PatientHeader data={apiData?.patientData || {}} />
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-10">
+          
+          <section className="bg-white rounded-[2rem] border border-slate-100 overflow-hidden shadow-sm">
+            <PatientHeader data={patient} />
           </section>
 
-          {/* Section 2: Clinical Findings */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-            <motion.div 
-              initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }}
-              className="lg:col-span-5"
-            >
-              <RiskScoreCard score={defaultResult.score} label={defaultResult.status} />
-            </motion.div>
-            
-            <motion.div 
-              initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.4 }}
-              className="lg:col-span-7"
-            >
+            <div className="lg:col-span-5">
+              <RiskScoreCard score={report.score} label={report.status} />
+            </div>
+            <div className="lg:col-span-7">
               <ConsultationIntervention 
-                 description={defaultResult.consultation.analysis} 
-                 steps={defaultResult.consultation.steps} 
+                description={report.analysis} 
+                steps={report.steps} 
               />
-            </motion.div>
+            </div>
           </div>
 
-          {/* Section 3: Nuanced Observations */}
+          {/* Insights Grid with safety check */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-             {defaultResult.consultation.insights.map((insight: string, i: number) => (
-               <motion.div 
-                 key={i}
-                 initial={{ opacity: 0, scale: 0.9 }}
-                 animate={{ opacity: 1, scale: 1 }}
-                 transition={{ delay: 0.6 + (i * 0.1) }}
-                 whileHover={{ y: -8, transition: { duration: 0.2 } }}
-                 className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-xl shadow-slate-100/50 group"
-               >
-                 <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-6 transition-colors ${
-                   i === 0 ? 'bg-indigo-50 text-indigo-500' : 
-                   i === 1 ? 'bg-emerald-50 text-emerald-500' : 
-                   'bg-amber-50 text-amber-500'
-                 }`}>
-                   {i === 0 ? <Zap size={22} /> : i === 1 ? <Activity size={22} /> : <Heart size={22} />}
+             {report.insights.slice(0, 3).map((insight, i) => (
+               <div key={i} className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm">
+                 <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center mb-6">
+                   {i === 0 ? <Zap className="text-indigo-500" /> : i === 1 ? <Activity className="text-emerald-500" /> : <Heart className="text-rose-500" />}
                  </div>
-                 <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Observation 0{i+1}</h4>
-                 <p className="text-slate-600 font-light leading-relaxed group-hover:text-slate-900 transition-colors">
-                   {insight}
-                 </p>
-               </motion.div>
+                 <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Insight 0{i+1}</h4>
+                 <p className="text-slate-600 text-sm leading-relaxed">{insight}</p>
+               </div>
              ))}
           </div>
 
-          {/* Section 4: Final Certification */}
-          <footer className="text-center py-16 px-8 border-t border-slate-100 relative">
-             <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-6">
-               <ShieldCheck className="w-8 h-8 text-indigo-100" />
-             </div>
-             
-             <p className="max-w-2xl mx-auto font-serif italic text-xl text-slate-500 leading-relaxed mb-8">
-               "{defaultResult.consultation.closing_note}"
-             </p>
-             
-             <div className="flex flex-col items-center gap-4">
-               <div className="h-px w-24 bg-slate-200" />
-               <p className="text-[10px] font-bold text-slate-300 uppercase tracking-[0.4em]">
-                 Generated by Physiological Inference Engine v1.0
-               </p>
-             </div>
+          <footer className="text-center py-12 border-t border-slate-100">
+             <ShieldCheck className="w-6 h-6 text-slate-200 mx-auto mb-4" />
+             <p className="font-serif italic text-lg text-slate-500 max-w-xl mx-auto mb-6">"{report.closing_note}"</p>
+             <p className="text-[10px] font-bold text-slate-300 uppercase tracking-[0.3em]">AI-Inferred Wellness Report</p>
           </footer>
         </motion.div>
       </div>
