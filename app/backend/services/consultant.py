@@ -1,9 +1,13 @@
 import google.generativeai as genai
+from dotenv import load_dotenv
+import os
 import json
 
+load_dotenv()
+
 # Replace with your actual API Key from Google AI Studio
-genai.configure(api_key="AIzaSyDo3CJDB1XdUI6KGWPOZWF1z8F5VZz-r0Q")
-model = genai.GenerativeModel('gemini-3.1-flash-lite-preview')
+genai.configure(api_key=os.getenv("LLM_API_KEY"))
+model = genai.GenerativeModel(os.getenv("LLM_MODEL"))
 
 def get_physiologist_consultation(data: dict, ml_result: int, probability: float):
     # Professional but accessible labeling

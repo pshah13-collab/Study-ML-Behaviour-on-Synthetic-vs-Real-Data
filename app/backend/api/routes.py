@@ -16,8 +16,11 @@ async def analyze_stress(payload: ConsultationData):
     print(prediction_proabilities)
     probability = prediction_proabilities[0][0] if class_label == 0 else prediction_proabilities[0][1]
     probability_percentage = float(probability) * 100
-    consultation_content = get_physiologist_consultation(data, class_label, probability_percentage)
+    try:
+        consultation_content = get_physiologist_consultation(data, class_label, probability_percentage)
 
+    except Exception as e :
+        consultation_content = {}
 
 
     return {
